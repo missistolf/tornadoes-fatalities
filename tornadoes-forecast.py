@@ -2,6 +2,10 @@ import pandas as pd
 import numpy as np
 import pickle
 import operator
+from typing import Dict
+from typing import Any
+from typing import Union
+from typing import Tuple
 from geopy.distance import geodesic
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression 
@@ -22,238 +26,316 @@ from sklearn.metrics import mean_squared_log_error
 from sklearn.metrics import d2_pinball_score
 from sklearn.metrics import mean_absolute_percentage_error
 
-def calculate_distance(row):
-  """
-  This function calculates ellipsoidal distance between pairs or coordinates
-  in the same row of a data frame
-  """
-  start_point = (row['slat'], row['slon'])
-  end_point = (row['elat'], row['elon'])
-  return geodesic(start_point, end_point).kilometers  # Distance in kilometers
-  
-def miles_to_kilometers(miles):
-  """
-  This function does a simple conversion of a single value from miles to km
-  """
-  return miles * 1.60934
-  
-def yards_to_kilometers(yards):
-  """
-  This function does a simple conversion of a single value from yards to km
-  """
-  return yards * 0.0009144
+def calculate_distance(row: Dict[str, float]) -> float:
+    """
+    This function calculates ellipsoidal distance between pairs of coordinates
+    in the same row of a data frame.
 
-def calculate_tornado_area(row, len_col = "len_km", wid_col = "wid_km" ):
-  """
-  This function does a simple conversion of a single value from miles to km
-  """
-  return row[len_col] * row[wid_col]
+    Parameters:
+        row (Dict[str, float]): A dictionary containing float values for
+                               'slat', 'slon', 'elat', and 'elon'.
 
-def time_based_train_test_split(df, perc = 0.95, year_col = 'yr', pred_col = 'fat'):
-  """
-  # Train Test Split function based on percentual time
-  """  
-  yr_max = df[year_col].min() + int(perc * (df[year_col].max() - df[year_col].min()))
-  df_train = df[df[year_col] <= yr_max]
-  df_test = df[df[year_col] > yr_max]
+    Returns:
+        float: The calculated ellipsoidal distance in kilometers.
+    """
+    start_point = (row['slat'], row['slon'])
+    end_point = (row['elat'], row['elon'])
+    return geodesic(start_point, end_point).kilometers
   
-  X_train = df_train.drop(columns=[pred_col])
-  y_train = df_train[pred_col]
-  X_test = df_test.drop(columns=[pred_col])
-  y_test = df_test[pred_col]
   
-  return X_train, X_test, y_train, y_test
+def miles_to_kilometers(miles: float) -> float:
+    """
+    This function does a simple conversion of a single value from miles to km.
 
-def transform_value(value):
-  """
-  Transform data for classifier - boolean
-  """
-  return '1' if value > 0 else '0'
-  
-def tune_regressor(X_train, y_train, X_val, y_val, model_file = 'model/best_model_regr.pkl', metric = 'neg_mean_squared_error'):
-  
-  models = [
+    Parameters:
+        miles (float): The distance value in miles.
 
-    {
-      'model': RandomForestRegressor(),
-      'param_grid': {
-        'n_estimators': [10, 20, 50],
-        'max_depth': [None, 10, 20, 50],
-        'min_samples_split': [5, 10],
-        'min_samples_leaf': [5, 10]
-        }
+    Returns:
+        float: The converted distance value in kilometers.
+    """
+    return miles * 1.60934
+
+  
+def yards_to_kilometers(yards: float) -> float:
+    """
+    This function does a simple conversion of a single value from yards to km.
+
+    Parameters:
+        yards (float): The distance value in yards.
+
+    Returns:
+        float: The converted distance value in kilometers.
+    """
+    return yards * 0.0009144
+
+
+def calculate_tornado_area(row: Dict[str, float], len_col: str = "len_km", wid_col: str = "wid_km") -> float:
+    """
+    This function calculates the area of a tornado given the length and width values in kilometers.
+
+    Parameters:
+        row (Dict[str, float]): A dictionary containing float values for 'len_km' and 'wid_km'.
+        len_col (str): The key representing the length in kilometers in the 'row' dictionary. Default is "len_km".
+        wid_col (str): The key representing the width in kilometers in the 'row' dictionary. Default is "wid_km".
+
+    Returns:
+        float: The calculated area of the tornado in square kilometers.
+    """
+    return row[len_col] * row[wid_col]
+
+
+def time_based_train_test_split(df: pd.DataFrame, perc: float = 0.95, year_col: str = 'yr', pred_col: str = 'fat') -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
+    """
+    Train Test Split function based on percentual time
+
+    Parameters:
+        df (DataFrame): The input DataFrame.
+        perc (float): The percentage of data to include in the training set. Default is 0.95.
+        year_col (str): The column name representing the year in the DataFrame. Default is 'yr'.
+        pred_col (str): The column name representing the target variable in the DataFrame. Default is 'fat'.
+
+    Returns:
+        Tuple[DataFrame, DataFrame, Series, Series]: A tuple containing X_train, X_test, y_train, and y_test.
+    """
+    yr_max = df[year_col].min()+int(perc*(df[year_col].max()-df[year_col].min()))
+    df_train = df[df[year_col] <= yr_max]
+    df_test = df[df[year_col] > yr_max]
+
+    X_train = df_train.drop(columns=[pred_col])
+    y_train = df_train[pred_col]
+    X_test = df_test.drop(columns=[pred_col])
+    y_test = df_test[pred_col]
+
+    return X_train, X_test, y_train, y_test
+
+
+def transform_value(value: float) -> str:
+    """
+    Transform data for classifier - boolean
+
+    Parameters:
+        value (float): The numeric value to be transformed.
+
+    Returns:
+        str: The transformed value as a string, '1' if greater than 0, '0' otherwise.
+    """
+    return '1' if value > 0 else '0'
+  
+
+def tune_regressor(X_train: Any, y_train: Any, X_val: Any, y_val: Any, model_file: str = 'model/best_model_regr.pkl', metric: str = 'neg_mean_squared_error') -> Any:
+    """
+    Tune regressor models using grid search and save the best model.
+
+    Parameters:
+        X_train (Any): The features of the training set.
+        y_train (Any): The target variable of the training set.
+        X_val (Any): The features of the validation set.
+        y_val (Any): The target variable of the validation set.
+        model_file (str): The file path to save the best model as a pickle file. Default is 'model/best_model_regr.pkl'.
+        metric (str): The scoring metric for grid search. Default is 'neg_mean_squared_error'.
+
+    Returns:
+        Any: The best-tuned regressor model.
+    """
+    models = [
+        {
+            'model': RandomForestRegressor(),
+            'param_grid': {
+                'n_estimators': [10, 20, 50],
+                'max_depth': [None, 10, 20, 50],
+                'min_samples_split': [5, 10],
+                'min_samples_leaf': [5, 10]
+            }
         },
-    {
-      'model': SVR(),
-      'param_grid': {
-        'C': [0.1, 1],
-        'kernel': ['rbf', 'poly'],
-        'degree': [1, 2, 3],
+        {
+            'model': SVR(),
+            'param_grid': {
+                'C': [0.1, 1],
+                'kernel': ['rbf', 'poly'],
+                'degree': [1, 2, 3],
+            }
+        },
+        {
+            'model': GradientBoostingRegressor(),
+            'param_grid': {
+                'n_estimators': [10, 20, 50, 100],
+                'learning_rate': [0.01, 0.1],
+                'max_depth': [10, 20, 50],
+                'min_samples_split': [5, 10],
+                'min_samples_leaf': [5, 10]
+            }
         }
-    },
-    {
-      'model': GradientBoostingRegressor(),
-      'param_grid': {
-        'n_estimators': [10, 20, 50, 100],
-        'learning_rate': [0.01, 0.1],
-        'max_depth': [10, 20, 50],
-        'min_samples_split': [5, 10],
-        'min_samples_leaf': [5, 10]
-        }
-     }
     ]
 
-  # Perform model comparison and hyperparameter tuning
-  best_models = []
-  for model_info in models:
-    grid_search = GridSearchCV(estimator=model_info['model'], 
-    param_grid=model_info['param_grid'], cv=2, scoring=metric, verbose = 1)
-    grid_search.fit(X_val, y_val)
-    best_model = grid_search.best_estimator_
-    best_models.append({'model': best_model, 'score': grid_search.best_score_})
+    # Perform model comparison and hyperparameter tuning
+    best_models = []
+    for model_info in models:
+        grid_search = GridSearchCV(estimator=model_info['model'], param_grid=model_info['param_grid'], cv=2, scoring=metric, verbose=1)
+        grid_search.fit(X_val, y_val)
+        best_model = grid_search.best_estimator_
+        best_models.append({'model': best_model, 'score': grid_search.best_score_})
 
-  # Evaluate the best models on the test set
-  best_models = sorted(best_models, key=operator.itemgetter('score'), reverse=True)
-  
-  # Make Prediction on Validation Data Set
-  best_model = best_models[0]['model']
-  print(best_model)
-        
-  # Save best model as pickle file
-  with open(model_file, 'wb') as file:
-    pickle.dump(best_model, file)
-    
-  return(best_model)
+    # Evaluate the best models on the test set
+    best_models = sorted(best_models, key=operator.itemgetter('score'), reverse=True)
 
-def tune_classifier(X_train, y_train, X_val, y_val, model_file = 'model/best_model_class.pkl', metric = 'matthews_corrcoef'):
+    # Make Prediction on Validation Data Set
+    best_model = best_models[0]['model']
+    print(best_model)
 
-  models = [
-    {
-      'model': LogisticRegression(),
-      'param_grid': {
-        'penalty': [None, 'l2'],
-        'intercept_scaling': [1, 2, 5, 10],
-        'multi_class': ['multinomial']
+    # Save the best model as a pickle file
+    with open(model_file, 'wb') as file:
+        pickle.dump(best_model, file)
+
+    return best_model
+
+
+def tune_classifier(X_train: Any, y_train: Any, X_val: Any, y_val: Any, model_file: str = 'model/best_model_class.pkl', metric: str = 'matthews_corrcoef') -> Any:
+    """
+    Tune classifier models using grid search and save the best model.
+
+    Parameters:
+        X_train (Any): The features of the training set.
+        y_train (Any): The target variable of the training set.
+        X_val (Any): The features of the validation set.
+        y_val (Any): The target variable of the validation set.
+        model_file (str): The file path to save the best model as a pickle file. Default is 'model/best_model_class.pkl'.
+        metric (str): The scoring metric for grid search. Default is 'matthews_corrcoef'.
+
+    Returns:
+        Any: The best-tuned classifier model.
+    """
+    models = [
+        {
+            'model': LogisticRegression(),
+            'param_grid': {
+                'penalty': [None, 'l2'],
+                'intercept_scaling': [1, 2, 5, 10],
+                'multi_class': ['multinomial']
+            }
+        },
+        {
+            'model': RandomForestClassifier(),
+            'param_grid': {
+                'n_estimators': [3, 5, 10, 20, 50],
+                'max_depth': [10, 15, 20],
+                'min_samples_split': [200, 500, 1000],
+                'min_samples_leaf': [100, 200, 500]
+            }
         }
-      },
-    {
-      'model': RandomForestClassifier(),
-      'param_grid': {
-        'n_estimators': [3, 5, 10, 20, 50],
-        'max_depth': [10, 15, 20],
-        'min_samples_split': [200, 500, 1000],
-        'min_samples_leaf': [100, 200, 500]
-        }
-      }
     ]
 
-  # Perform model comparison and hyperparameter tuning
-  best_models = []
-  for model_info in models:
-    grid_search = GridSearchCV(estimator=model_info['model'], 
-    param_grid=model_info['param_grid'], cv=2, scoring=metric, verbose = 1)
-    grid_search.fit(X_val, y_val)
-    best_model = grid_search.best_estimator_
-    best_models.append({'model': best_model, 'score': grid_search.best_score_})
-    
-  # Evaluate the best models on the test set
-  best_models = sorted(best_models, key=operator.itemgetter('score'), reverse=True)
-  
-  # Make Prediction on Validation Data Set
-  best_model = best_models[0]['model']
-  print(best_model)
-        
-  # Save best model as pickle file
-  with open(model_file, 'wb') as file:
-    pickle.dump(best_model, file)
-    
-  return(best_model)
+    # Perform model comparison and hyperparameter tuning
+    best_models = []
+    for model_info in models:
+        grid_search = GridSearchCV(estimator=model_info['model'], param_grid=model_info['param_grid'], cv=2, scoring=metric, verbose=1)
+        grid_search.fit(X_val, y_val)
+        best_model = grid_search.best_estimator_
+        best_models.append({'model': best_model, 'score': grid_search.best_score_})
 
-def plt_error_map(y_train, y_val, y_test, y_train_pred, y_val_pred, y_test_pred, output_path):
-  """
-  Plot Error Map
-  """
-  plt.clf()
-  fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-  
-  # Train
-  # m = int(np.expm1(np.concatenate([y_train, y_val, y_test])).max())
-  m = int(np.concatenate([y_train, y_val, y_test]).max())
-  
-  # axes[0].scatter(np.expm1(y_train), np.expm1(y_train_pred), alpha=0.5)
-  axes[0].scatter(y_train, y_train_pred, alpha=0.5)
+    # Evaluate the best models on the test set
+    best_models = sorted(best_models, key=operator.itemgetter('score'), reverse=True)
 
-  axes[0].set_xlabel("Real Values")
-  axes[0].set_ylabel("Prediction")
-  axes[0].set_xlim(0, m)
-  axes[0].set_ylim(0, m)
-  axes[0].plot([0, m], [0, m], linestyle='--', color='red')
-  axes[0].set_title("Error Map of Train Set")
+    # Make Prediction on Validation Data Set
+    best_model = best_models[0]['model']
+    print(best_model)
+
+    # Save the best model as a pickle file
+    with open(model_file, 'wb') as file:
+        pickle.dump(best_model, file)
+
+    return best_model
   
-  # Validation
-  # axes[1].scatter(np.expm1(y_val), np.expm1(y_val_pred), alpha=0.5)
-  axes[1].scatter(y_val, y_val_pred, alpha=0.5)
-  axes[1].set_xlabel("Real Values")
-  axes[1].set_ylabel("Prediction")
-  axes[1].set_xlim(0, m)
-  axes[1].set_ylim(0, m)
-  axes[1].plot([0, m], [0, m], linestyle='--', color='red')
-  axes[1].set_title("Error Map of Val Set")
-  
-  # Test
-  # axes[2].scatter(np.expm1(y_test), np.expm1(y_test_pred), alpha=0.5)
-  axes[2].scatter(y_test, y_test_pred, alpha=0.5)
-  axes[2].set_xlabel("Real Values")
-  axes[2].set_ylabel("Prediction")
-  axes[2].set_xlim(0, m)
-  axes[2].set_ylim(0, m)
-  axes[2].plot([0, m], [0, m], linestyle='--', color='red')
-  axes[2].set_title("Error Map of Test Set")
-  
-  # Adjust layout
-  plt.tight_layout()
-  
-  # Save the figure
-  plt.savefig(output_path)
-  
-  # Show the plots
-  plt.show()
-  
-def plt_error_kernel(y_train, y_val, y_test, y_train_pred, y_val_pred, y_test_pred):
+def plt_error_map(y_train: np.ndarray, y_val: np.ndarray, y_test: np.ndarray, y_train_pred: np.ndarray, y_val_pred: np.ndarray, y_test_pred: np.ndarray, output_path: str) -> None:
+    """
+    Plot Error Map
+
+    Parameters:
+        y_train (np.ndarray): The true values of the target variable for the training set.
+        y_val (np.ndarray): The true values of the target variable for the validation set.
+        y_test (np.ndarray): The true values of the target variable for the test set.
+        y_train_pred (np.ndarray): The predicted values for the training set.
+        y_val_pred (np.ndarray): The predicted values for the validation set.
+        y_test_pred (np.ndarray): The predicted values for the test set.
+        output_path (str): The file path to save the error map plot.
+    """
+    plt.clf()
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+
+    # Train
+    m = int(np.concatenate([y_train, y_val, y_test]).max())
+    axes[0].scatter(y_train, y_train_pred, alpha=0.5)
+    axes[0].set_xlabel("Real Values")
+    axes[0].set_ylabel("Prediction")
+    axes[0].set_xlim(0, m)
+    axes[0].set_ylim(0, m)
+    axes[0].plot([0, m], [0, m], linestyle='--', color='red')
+    axes[0].set_title("Error Map of Train Set")
+
+    # Validation
+    axes[1].scatter(y_val, y_val_pred, alpha=0.5)
+    axes[1].set_xlabel("Real Values")
+    axes[1].set_ylabel("Prediction")
+    axes[1].set_xlim(0, m)
+    axes[1].set_ylim(0, m)
+    axes[1].plot([0, m], [0, m], linestyle='--', color='red')
+    axes[1].set_title("Error Map of Val Set")
+
+    # Test
+    axes[2].scatter(y_test, y_test_pred, alpha=0.5)
+    axes[2].set_xlabel("Real Values")
+    axes[2].set_ylabel("Prediction")
+    axes[2].set_xlim(0, m)
+    axes[2].set_ylim(0, m)
+    axes[2].plot([0, m], [0, m], linestyle='--', color='red')
+    axes[2].set_title("Error Map of Test Set")
+
+    # Adjust layout
+    plt.tight_layout()
+
+    # Save the figure
+    plt.savefig(output_path)
+
+    # Show the plots
+    plt.show()
+    
+    
+def plt_error_kernel(y_train: np.ndarray, y_val: np.ndarray, y_test: np.ndarray, y_train_pred: np.ndarray, y_val_pred: np.ndarray, y_test_pred: np.ndarray) -> None:
     """
     Plot Error Map with Kernel Density Estimates
+
+    Parameters:
+        y_train (np.ndarray): The true values of the target variable for the training set.
+        y_val (np.ndarray): The true values of the target variable for the validation set.
+        y_test (np.ndarray): The true values of the target variable for the test set.
+        y_train_pred (np.ndarray): The predicted values for the training set.
+        y_val_pred (np.ndarray): The predicted values for the validation set.
+        y_test_pred (np.ndarray): The predicted values for the test set.
     """
     plt.clf()
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
     # Calculate maximum value for axis limits
-    # m = int(np.expm1(np.concatenate([y_train, y_val, y_test])).max())
     m = int(np.concatenate([y_train, y_val, y_test]).max())
 
     # Plot for Train Set
-    # dt = pd.DataFrame({'Real': np.expm1(np.array(y_train)), 'Pred': np.expm1(y_train_pred)})
-    dt = pd.DataFrame({'Real': np.array(y_train), 'Pred': y_train_pred})
-    
-    sns.jointplot(data=dt, x="Real", y="Pred", kind="hex")
+    dt_train = pd.DataFrame({'Real': y_train, 'Pred': y_train_pred})
+    sns.jointplot(data=dt_train, x="Real", y="Pred", kind="hex")
     plt.savefig("output/error-kernel-train.png")
     plt.show()
-    
+
     # Plot for Validation Set
-    # dt = pd.DataFrame({'Real': np.expm1(np.array(y_val)), 'Pred': np.expm1(y_val_pred)})
-    dt = pd.DataFrame({'Real': np.array(y_val), 'Pred': y_val_pred})
-    
-    sns.jointplot(data=dt, x="Real", y="Pred", kind="hex")
+    dt_val = pd.DataFrame({'Real': y_val, 'Pred': y_val_pred})
+    sns.jointplot(data=dt_val, x="Real", y="Pred", kind="hex")
     plt.savefig("output/error-kernel-val.png")
     plt.show()
 
     # Plot for Test Set
-    # dt = pd.DataFrame({'Real': np.expm1(np.array(y_test)), 'Pred': np.expm1(y_test_pred)})
-    dt = pd.DataFrame({'Real': np.array(y_test), 'Pred': y_test_pred})
-
-    sns.jointplot(data=dt, x="Real", y="Pred", kind="hex")
+    dt_test = pd.DataFrame({'Real': y_test, 'Pred': y_test_pred})
+    sns.jointplot(data=dt_test, x="Real", y="Pred", kind="hex")
     plt.savefig("output/error-kernel-test.png")
     plt.show()
-
+    
+# Main     
 # Inputs
 data_file = 'input/us_tornado_dataset_1950_2021.csv'
 
